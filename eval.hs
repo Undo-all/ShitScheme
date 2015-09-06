@@ -5,6 +5,14 @@ module Eval where
 import Scheme
 import qualified Data.Map as M (lookup, insert)
 import Control.Monad.Except
+import Parse
+import Text.ParserCombinators.Parsec (parse)
+
+evalStr :: Env -> String -> String -> IO (Either String Value)
+evalStr env name xs = 
+    case parse parseExprs name xs of
+      Left err  -> return (Left (show err))
+      Right xs  -> either (Left . show) Right <$> runExceptT (fst <$> evalExprs env xs)
 
 evalExprs :: Env -> [Expr] -> Evaluator
 evalExprs env [x]    = eval env x

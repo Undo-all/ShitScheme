@@ -46,6 +46,8 @@ scmDisplay env [x] = do
 scmEval env [SExp exp] = fst <$> eval env exp
 scmEval env [v]        = throwError $ WrongArgType "eval" (getType v) SExpType
 
+scmBegin env xs = evalExprs env xs
+
 unwrapNums :: [Value] -> String -> ExceptT Error IO [Double]
 unwrapNums [] _ = return []
 unwrapNums ((Number x):xs) n = (x :) <$> unwrapNums xs n
@@ -78,6 +80,7 @@ defaultEnv :: Env
 defaultEnv = fromList $
                [ ("define", Form "define" (2, Nothing) scmDefine)
                , ("lambda", Form "lambda" (2, Nothing) scmLambda)
+               , ("begin", Form "begin" (1, Nothing) scmBegin)
                , ("if", Form "if" (3, Just 3) scmIf)
                , ("display", Prim "display" (1, Just 1) scmDisplay)
                , ("eval", Prim "eval" (1, Just 1) scmEval)
