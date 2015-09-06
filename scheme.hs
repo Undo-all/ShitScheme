@@ -13,6 +13,7 @@ data Error = WrongArgType Name Type Type
            | EmptyList deriving (Eq, Show)
 
 data Type = NumberType
+          | BoolType
           | SymbolType
           | SExpType 
           | FuncType
@@ -25,6 +26,7 @@ type Primative = (Env -> [Value] -> ExceptT Error IO Value)
 type SpecialForm = (Env -> [Expr] -> ExceptT Error IO (Value, Env))
 
 data Value = Number Double
+           | Bool Bool
            | Symbol Name
            | SExp Expr
            | Func Name [Name] [Expr]
@@ -37,6 +39,7 @@ instance Show Value where
         | otherwise = show n
         where isInt n = n == fromIntegral (floor n)
     show (Symbol s)      = s
+    show (Bool b)        = if b then "#t" else "#f"
     show (SExp exp)      = show exp
     show (Func n args _) = "<function (" ++ n ++ " " ++ intercalate " " args ++ ")>"
     show (Prim n _ _)    = "<primative " ++ n ++ ">"
@@ -44,6 +47,7 @@ instance Show Value where
 
 getType :: Value -> Type
 getType (Number _)   = NumberType
+getType (Bool _)     = BoolType
 getType (Symbol _)   = SymbolType
 getType (SExp _)     = SExpType
 getType (Func _ _ _) = FuncType

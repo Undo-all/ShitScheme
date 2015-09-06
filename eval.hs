@@ -35,8 +35,9 @@ apply env (Prim name numArgs f) args
     | otherwise                          = throwError $ WrongNumArgs name (length args) numArgs
 apply env (Func name argNames body) args
     | length args /= length argNames = throwError $ WrongNumArgs name (length args) (makeNumArgs (length argNames))
-    | otherwise = fst <$> evalExprs env body
+    | otherwise = fst <$> evalExprs newEnv body
     where makeNumArgs n = (n, Just n)
+          newEnv = foldl (flip (uncurry M.insert)) env (zip argNames args)
 
 rightNumArgs :: Int -> NumArgs -> Bool
 rightNumArgs n (x, Nothing) = n >= x
