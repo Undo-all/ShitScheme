@@ -15,11 +15,11 @@ nil = SExp (List [])
 unwrapSyms :: [Expr] -> String -> ExceptT Error IO [Name]
 unwrapSyms [] _ = return []
 unwrapSyms ((Atom (Symbol s)):xs) n = (s :) <$> unwrapSyms xs n
-unwrapSyms (x:xs) n = throwError $ WrongArgType n (getExprType x) SymbolType
+unwrapSyms (x:xs) n = throwError $ WrongArgType n SymbolType (getExprType x)
 
 scmDefine env [Atom (Symbol s), v] = (nil,) <$> ((flip (M.insert s) env) <$> fmap fst (eval env v))
 scmDefine env (Atom (Symbol s):xs) = throwError $ WrongNumArgs "define" (length xs + 1) (2, Just 2)
-scmDefine env (List xs:body)      = do
+scmDefine env (List xs:body) = do
     syms <- unwrapSyms xs "define"
     return (nil, M.insert (head syms) (Func (head syms) (tail syms) body) env)
 
@@ -27,7 +27,7 @@ scmLambda :: SpecialForm
 scmLambda env ((List xs):body) = do
     syms <- unwrapSyms xs "lambda"
     return (Func "anonymous lambda" syms body, env)
-scmLambda env (x:_)            = throwError $ WrongArgType "lambda" (getExprType x) ListType
+scmLambda env (x:_)            = throwError $ WrongArgType "lambda" ListType (getExprType x)
 
 scmIf env [x, a, b] = do
     cond <- fst <$> eval env x
@@ -44,14 +44,14 @@ scmDisplay env [x] = do
     return $ SExp (List [])
 
 scmEval env [SExp exp] = fst <$> eval env exp
-scmEval env [v]        = throwError $ WrongArgType "eval" (getType v) SExpType
+scmEval env [v]        = throwError $ WrongArgType "eval" SExpType (getType v)
 
 scmBegin env xs = evalExprs env xs
 
 unwrapNums :: [Value] -> String -> ExceptT Error IO [Double]
 unwrapNums [] _ = return []
 unwrapNums ((Number x):xs) n = (x :) <$> unwrapNums xs n
-unwrapNums (x:xs) n = throwError $ WrongArgType n (getType x) NumberType
+unwrapNums (x:xs) n = throwError $ WrongArgType n NumberType (getType x)
 
 binOp :: String -> (Double -> Double -> Double) -> Double -> Value
 binOp n f d = Prim n (0, Nothing) op
@@ -76,6 +76,16 @@ scmCdr _ [SExp (List [])] = throwError $ WrongArgType "cdr" ListType NilType
 scmCdr _ [SExp (List xs)] = return $ SExp $ List (tail xs)
 scmCdr _ [v]              = throwError $ WrongArgType "cdr" ListType (getType v)
 
+scmCons :: Primative
+scmCons _ [v, SExp (List xs)] = return $ SExp (List ((toExpr v):xs))
+  where toExpr (SExp (List xs)) = List xs
+        toExpr (SExp (Atom v))  = Atom v
+        toExpr v                = Atom v
+scmCons _ [_, v]              = throwError $ WrongArgType "cons" ListType (getType v)
+
+scmNull _ [SExp (List [])] = return $ Bool True
+scmNull _ _                = return $ Bool False
+
 defaultEnv :: Env
 defaultEnv = fromList $
                [ ("define", Form "define" (2, Nothing) scmDefine)
@@ -95,6 +105,8 @@ defaultEnv = fromList $
                , ("<=", numCompOp "<=" (<=))
                , ("car", Prim "car" (1, Just 1) scmCar)
                , ("cdr", Prim "cdr" (1, Just 1) scmCdr)
+               , ("cons", Prim "cons" (2, Just 2) scmCons)
+               , ("null?", Prim "null?" (1, Just 1) scmNull)
                ]
             
 

@@ -11,6 +11,6 @@ main = do
         xs <- readFile f
         res <- evalStr defaultEnv f xs
         case res of
-          Right val -> return ()
-          Left err  -> putStrLn err
+          Right (val, env) -> repl env
+          Left err         -> putStrLn err
 
