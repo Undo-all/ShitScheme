@@ -2,8 +2,6 @@ import Repl
 import DefaultEnv
 import System.Environment (getArgs)
 import Eval
-import Parse
-import Text.ParserCombinators.Parsec (parse)
 
 main = do
     args <- getArgs
