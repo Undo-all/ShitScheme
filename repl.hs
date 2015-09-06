@@ -12,9 +12,13 @@ repl env = do
     putStr ">>> "
     hFlush stdout
     xs <- getLine
-    res <- evalStr xs
+    let res = parse parseExpr "<repl>" xs
     case res of
       Left err  -> print err >> repl env
-      Right val -> print val >> repl env
+      Right exp -> do
+        res <- runExceptT $ eval env exp
+        case res of
+          Left err -> print err >> repl env
+          Right (val, env) -> print val >> repl env
         
 
