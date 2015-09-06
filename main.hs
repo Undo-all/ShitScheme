@@ -2,14 +2,15 @@ import Repl
 import DefaultEnv
 import System.Environment (getArgs)
 import Eval
+import Control.Monad.Trans (lift)
 
 main = do
     args <- getArgs
     case args of
-      []  -> repl defaultEnv
+      []  -> defaultEnv >>= repl
       [f] -> do
         xs <- readFile f
-        res <- evalStr defaultEnv f xs
+        res <- defaultEnv >>= \x -> evalStr x f xs
         case res of
           Right (val, env) -> repl env
           Left err         -> putStrLn err

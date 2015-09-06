@@ -5,9 +5,10 @@ module DefaultEnv (defaultEnv) where
 import Scheme
 import Eval
 import Data.Map (fromList)
-import qualified Data.Map as M (insert)
+import qualified Data.Map as M
 import Control.Monad.Except
 import Control.Monad.Trans (lift)
+import Data.IORef
 
 nil :: Value
 nil = SExp (List [])
@@ -17,17 +18,30 @@ unwrapSyms [] _ = return []
 unwrapSyms ((Atom (Symbol s)):xs) n = (s :) <$> unwrapSyms xs n
 unwrapSyms (x:xs) n = throwError $ WrongArgType n SymbolType (getExprType x)
 
-scmDefine env [Atom (Symbol s), v] = (nil,) <$> ((flip (M.insert s) env) <$> fmap fst (eval env v))
+scmDefine env [Atom (Symbol s), v] = do
+    res <- fst <$> eval env v
+    ref <- lift $ newIORef res
+    return (nil, M.insert s ref env)
 scmDefine env (Atom (Symbol s):xs) = throwError $ WrongNumArgs "define" (length xs + 1) (2, Just 2)
 scmDefine env (List xs:body) = do
     syms <- unwrapSyms xs "define"
-    return (nil, M.insert (head syms) (Func (head syms) (tail syms) body) env)
+    ref  <- lift $ newIORef $ Func (head syms) (tail syms) body 
+    return (nil, M.insert (head syms) ref env)
 
 scmLambda :: SpecialForm
 scmLambda env ((List xs):body) = do
     syms <- unwrapSyms xs "lambda"
-    return (Func "anonymous lambda" syms body, env)
+    return (Func "anonymous-lambda" syms body, env)
 scmLambda env (x:_)            = throwError $ WrongArgType "lambda" ListType (getExprType x)
+
+scmSet :: SpecialForm
+scmSet env [Atom (Symbol s), v] = 
+    case M.lookup s env of
+      Just ref -> do val <- fst <$> eval env v 
+                     lift $ writeIORef ref val
+                     return (nil, env)
+      Nothing  -> throwError $ NotFound s
+scmSet env [x, _] = throwError $ WrongArgType "set!" SymbolType (getExprType x)
 
 scmIf env [x, a, b] = do
     cond <- fst <$> eval env x
@@ -86,10 +100,11 @@ scmCons _ [_, v]              = throwError $ WrongArgType "cons" ListType (getTy
 scmNull _ [SExp (List [])] = return $ Bool True
 scmNull _ _                = return $ Bool False
 
-defaultEnv :: Env
-defaultEnv = fromList $
+defaultEnv :: IO Env
+defaultEnv = fmap fromList $ mapM (\(x, y) -> fmap (x,) (newIORef y)) $
                [ ("define", Form "define" (2, Nothing) scmDefine)
                , ("lambda", Form "lambda" (2, Nothing) scmLambda)
+               , ("set!", Form "set!" (2, Nothing) scmSet)
                , ("begin", Form "begin" (1, Nothing) scmBegin)
                , ("if", Form "if" (3, Just 3) scmIf)
                , ("display", Prim "display" (1, Just 1) scmDisplay)

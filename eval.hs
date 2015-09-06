@@ -7,6 +7,7 @@ import qualified Data.Map as M (lookup, insert)
 import Control.Monad.Except
 import Parse
 import Text.ParserCombinators.Parsec (parse)
+import Data.IORef 
 
 evalStr :: Env -> String -> String -> IO (Either String (Value, Env))
 evalStr env name xs = 
@@ -21,7 +22,8 @@ evalExprs env (x:xs) = (snd <$> eval env x) >>= flip evalExprs xs
 eval :: Env -> Expr -> Evaluator
 eval env (Atom (Symbol s)) = 
     case M.lookup s env of
-      Just v -> return (v, env)
+      Just v -> do val <- lift $ readIORef v
+                   return (val, env)
       _      -> throwError $ NotFound s
 eval env (Atom v) = return (v, env)
 
@@ -43,9 +45,10 @@ apply env (Prim name numArgs f) args
     | otherwise                          = throwError $ WrongNumArgs name (length args) numArgs
 apply env (Func name argNames body) args
     | length args /= length argNames = throwError $ WrongNumArgs name (length args) (makeNumArgs (length argNames))
-    | otherwise = fst <$> evalExprs newEnv body
+    | otherwise = do e <- lift $ newEnv
+                     fst <$> evalExprs e body
     where makeNumArgs n = (n, Just n)
-          newEnv = foldl (flip (uncurry M.insert)) env (zip argNames args)
+          newEnv = foldl (flip (uncurry M.insert)) env . zip argNames <$> mapM newIORef args
 
 rightNumArgs :: Int -> NumArgs -> Bool
 rightNumArgs n (x, Nothing) = n >= x

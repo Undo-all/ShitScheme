@@ -3,6 +3,7 @@ module Scheme where
 import Control.Monad.Except
 import qualified Data.Map as M
 import Data.List (intercalate)
+import Data.IORef
 
 type Name = String
 type NumArgs = (Int, Maybe Int)
@@ -64,7 +65,7 @@ getExprType (Atom v)  = getType v
 getExprType (List []) = NilType
 getExprType (List xs) = ListType
 
-type Env = M.Map Name Value
+type Env = M.Map Name (IORef Value)
 
 type Evaluator = ExceptT Error IO (Value, Env)
 
