@@ -18,7 +18,8 @@ data Type = NumberType
           | FuncType
           | PrimType
           | FormType 
-          | ListType deriving (Eq, Show)
+          | ListType 
+          | NilType deriving (Eq, Show)
 
 type Primative = (Env -> [Value] -> ExceptT Error IO Value)
 type SpecialForm = (Env -> [Expr] -> ExceptT Error IO (Value, Env))
@@ -56,6 +57,7 @@ instance Show Expr where
     show (Atom v)  = show v
 
 getExprType (Atom v)  = getType v
+getExprType (List []) = NilType
 getExprType (List xs) = ListType
 
 type Env = M.Map Name Value

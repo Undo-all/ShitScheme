@@ -39,6 +39,19 @@ binOp n f d = Prim n (0, Nothing) op
           | null xs   = return $ Number d
           | otherwise = (\xs -> Number $ foldl f (head xs) (tail xs)) <$> unwrapNums xs
 
+scmCar :: Primative
+scmCar _ [SExp (List [])] = throwError $ WrongArgType "car" ListType NilType
+scmCar _ [SExp (List xs)] = return $ toValue (head xs)
+  where toValue (List xs)         = SExp (List xs) 
+        toValue (Atom (Symbol s)) = SExp (Atom $ Symbol s)
+        toValue (Atom v)          = v
+scmCar _ [v]              = throwError $ WrongArgType "car" ListType (getType v)
+
+scmCdr :: Primative
+scmCdr _ [SExp (List [])] = throwError $ WrongArgType "cdr" ListType NilType
+scmCdr _ [SExp (List xs)] = return $ SExp $ List (tail xs)
+scmCdr _ [v]              = throwError $ WrongArgType "cdr" ListType (getType v)
+
 defaultEnv :: Env
 defaultEnv = fromList $
                [ ("define", Form "define" (2, Just 2) scmDefine)
@@ -50,6 +63,8 @@ defaultEnv = fromList $
                , ("*", binOp "*" (*) 1)
                , ("/", binOp "/" (/) 1)
                , ("%", binOp "%" (\x y -> fromIntegral $ round x `mod` round y) 1)
+               , ("car", Prim "car" (1, Just 1) scmCar)
+               , ("cdr", Prim "cdr" (1, Just 1) scmCdr)
                ]
             
 
