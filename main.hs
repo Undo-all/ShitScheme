@@ -3,15 +3,17 @@ import DefaultEnv
 import System.Environment (getArgs)
 import Eval
 import Control.Monad.Trans (lift)
+import Data.IORef
 
 main = do
     args <- getArgs
+    envRef <- defaultEnv >>= newIORef
     case args of
-      []  -> defaultEnv >>= repl
+      []  -> repl envRef
       [f] -> do
-        xs <- readFile f
-        res <- defaultEnv >>= \x -> evalStr x f xs
+        xs  <- readFile f
+        res <- evalStr envRef f xs
         case res of
-          Right (val, env) -> repl env
-          Left err         -> putStrLn err
+          Right _   -> repl envRef
+          Left err  -> putStrLn err
 

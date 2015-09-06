@@ -23,15 +23,15 @@ data Type = NumberType
           | ListType 
           | NilType deriving (Eq, Show)
 
-type Primative = (Env -> [Value] -> ExceptT Error IO Value)
-type SpecialForm = (Env -> [Expr] -> ExceptT Error IO (Value, Env))
+type Primitive = (Env -> [Value] -> ExceptT Error IO Value)
+type SpecialForm = (Env -> [Expr] -> ExceptT Error IO Value)
 
 data Value = Number Double
            | Bool Bool
            | Symbol Name
            | SExp Expr
-           | Func Name [Name] [Expr]
-           | Prim Name (Int, Maybe Int) Primative
+           | Func Name [Name] [Expr] Env
+           | Prim Name (Int, Maybe Int) Primitive
            | Form Name (Int, Maybe Int) SpecialForm
 
 instance Show Value where
@@ -39,21 +39,21 @@ instance Show Value where
         | isInt n   = show (floor n)
         | otherwise = show n
         where isInt n = n == fromIntegral (floor n)
-    show (Symbol s)      = s
-    show (Bool b)        = if b then "#t" else "#f"
-    show (SExp exp)      = show exp
-    show (Func n args _) = "<function (" ++ n ++ " " ++ intercalate " " args ++ ")>"
-    show (Prim n _ _)    = "<primative " ++ n ++ ">"
-    show (Form n _ _)    = "<special-form " ++ n ++ ">"
+    show (Symbol s)        = s
+    show (Bool b)          = if b then "#t" else "#f"
+    show (SExp exp)        = show exp
+    show (Func n args _ _) = "<function (" ++ n ++ " " ++ intercalate " " args ++ ")>"
+    show (Prim n _ _)      = "<primative " ++ n ++ ">"
+    show (Form n _ _)      = "<special-form " ++ n ++ ">"
 
 getType :: Value -> Type
-getType (Number _)   = NumberType
-getType (Bool _)     = BoolType
-getType (Symbol _)   = SymbolType
-getType (SExp _)     = SExpType
-getType (Func _ _ _) = FuncType
-getType (Prim _ _ _) = PrimType
-getType (Form _ _ _) = FormType
+getType (Number _)     = NumberType
+getType (Bool _)       = BoolType
+getType (Symbol _)     = SymbolType
+getType (SExp _)       = SExpType
+getType (Func _ _ _ _) = FuncType
+getType (Prim _ _ _)   = PrimType
+getType (Form _ _ _)   = FormType
 
 data Expr = List [Expr] | Atom Value 
 
@@ -65,7 +65,7 @@ getExprType (Atom v)  = getType v
 getExprType (List []) = NilType
 getExprType (List xs) = ListType
 
-type Env = M.Map Name (IORef Value)
+type Env = IORef (M.Map Name (IORef Value))
 
-type Evaluator = ExceptT Error IO (Value, Env)
+type Evaluator = ExceptT Error IO Value
 

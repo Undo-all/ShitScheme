@@ -19,6 +19,6 @@ repl env = do
         res <- runExceptT $ eval env exp
         case res of
           Left err -> print err >> repl env
-          Right (val, env) -> print val >> repl env
+          Right val -> print val >> repl env
         
 
