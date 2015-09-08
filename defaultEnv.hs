@@ -19,6 +19,16 @@ unwrapSyms [] _ = return []
 unwrapSyms ((Atom (Symbol s)):xs) n = (s :) <$> unwrapSyms xs n
 unwrapSyms (x:xs) n = throwError $ WrongArgType n SymbolType (getExprType x)
 
+unwrapNums :: [Value] -> String -> ExceptT Error IO [Double]
+unwrapNums [] _ = return []
+unwrapNums ((Number x):xs) n = (x :) <$> unwrapNums xs n
+unwrapNums (x:xs) n = throwError $ WrongArgType n NumberType (getType x)
+
+toExpr :: Value -> Expr
+toExpr (SExp (List xs)) = List xs
+toExpr (SExp (Atom v))  = Atom v
+toExpr v                = Atom v
+
 scmDefine envRef [Atom (Symbol s), v] = do
     res <- eval envRef v
     ref <- lift $ newIORef res
@@ -68,11 +78,6 @@ scmEval envRef [v]        = throwError $ WrongArgType "eval" SExpType (getType v
 
 scmBegin envRef xs = evalExprs envRef xs
 
-unwrapNums :: [Value] -> String -> ExceptT Error IO [Double]
-unwrapNums [] _ = return []
-unwrapNums ((Number x):xs) n = (x :) <$> unwrapNums xs n
-unwrapNums (x:xs) n = throwError $ WrongArgType n NumberType (getType x)
-
 binOp :: String -> (Double -> Double -> Double) -> Double -> Value
 binOp n f d = Prim n (0, Nothing) op
   where op _ xs
@@ -103,8 +108,14 @@ scmCons _ [v, SExp (List xs)] = return $ SExp (List ((toExpr v):xs))
         toExpr v                = Atom v
 scmCons _ [_, v]              = throwError $ WrongArgType "cons" ListType (getType v)
 
-scmNull _ [SExp (List [])] = return $ Bool True
-scmNull _ _                = return $ Bool False
+scmIsNull _ [SExp (List [])] = return $ Bool True
+scmIsNull _ _                = return $ Bool False
+scmIsList _ [SExp (List _)]  = return $ Bool True
+scmIsList _ _                = return $ Bool False
+scmIsAtom _ [SExp (Atom _)]  = return $ Bool True
+scmIsAtom _ _                = return $ Bool False
+
+scmList envRef xs = return $ SExp (List (map toExpr xs))
 
 defaultEnv :: IO (M.Map Name (IORef Value))
 defaultEnv = fmap fromList $ mapM (\(x, y) -> fmap (x,) (newIORef y)) $ pairs
@@ -127,7 +138,10 @@ defaultEnv = fmap fromList $ mapM (\(x, y) -> fmap (x,) (newIORef y)) $ pairs
                 , ("car", Prim "car" (1, Just 1) scmCar)
                 , ("cdr", Prim "cdr" (1, Just 1) scmCdr)
                 , ("cons", Prim "cons" (2, Just 2) scmCons)
-                , ("null?", Prim "null?" (1, Just 1) scmNull)
+                , ("null?", Prim "null?" (1, Just 1) scmIsNull)
+                , ("list?", Prim "list?" (1, Just 1) scmIsList)
+                , ("atom?", Prim "atom?" (1, Just 1) scmIsAtom)
+                , ("list", Prim "list" (0, Nothing) scmList)
                 ]
             
 
